@@ -108,7 +108,7 @@ def _start_poller():
 # ---------------------------------------------------------------------------
 # Flask app
 # ---------------------------------------------------------------------------
-FONTS_DIR = Path(__file__).resolve().parent / "fonts"
+ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 
 app = Flask(__name__)
 
@@ -129,6 +129,6 @@ def presence():
     return render_template("_presence.html", **cache)
 
 
-@app.route("/fonts/<path:filename>")
-def fonts(filename):
-    return send_from_directory(FONTS_DIR, filename)
+@app.route("/assets/<path:filename>")
+def assets(filename):
+    return send_from_directory(ASSETS_DIR, filename)
