@@ -40,8 +40,8 @@ if os.environ.get("VERBOSE") == "1":
 # ---------------------------------------------------------------------------
 API_KEY = os.environ["ONLOCATION_API_KEY"]
 API_URL = "https://api.whosonlocation.com/v1/staff"
-POLL_INTERVAL = 10          # seconds between API polls
-STALE_THRESHOLD = 120       # seconds before data is considered stale (2 min)
+POLL_INTERVAL = 1           # seconds between API polls
+STALE_THRESHOLD = 60        # seconds before data is considered stale
 
 # ---------------------------------------------------------------------------
 # In-memory cache
