@@ -1,4 +1,8 @@
-{% if not ready %}
+{% if not is_open %}
+<div class="flex items-center justify-center" style="min-height: 50vh;">
+  <p class="text-center text-4xl font-bold tracking-wide" style="color: #F4313F;">We're Closed</p>
+</div>
+{% elif not ready %}
 <p class="text-center text-xl" style="color: #b2b2b2;">Loading...</p>
 {% else %}
 

@@ -3,6 +3,7 @@ import time
 import threading
 import logging
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import requests
 from dotenv import load_dotenv
@@ -43,6 +44,18 @@ API_URL = "https://api.whosonlocation.com/v1/staff"
 POLL_INTERVAL = 1           # seconds between API polls
 STALE_THRESHOLD = 60        # seconds before data is considered stale
 
+# Business hours schedule (Eastern)
+TIMEZONE = ZoneInfo("America/New_York")
+SCHEDULE = {
+    0: (5, 21),  # Mon  5 AM – 9 PM
+    1: (5, 21),  # Tue
+    2: (5, 21),  # Wed
+    3: (5, 21),  # Thu
+    4: (5, 21),  # Fri
+    5: (5, 13),  # Sat  5 AM – 1 PM
+    # Sun: absent = closed
+}
+
 # ---------------------------------------------------------------------------
 # In-memory cache
 # ---------------------------------------------------------------------------
@@ -57,7 +70,23 @@ _cache = {
 _debug_flags = {
     "pause_poller": False,       # skip API polling when True
     "fail_next_presence": False, # return 503 on next /presence request
+    "force_closed": False,       # override schedule to force closed state
+    "force_open": False,         # override schedule to force open state
 }
+
+
+def _is_open():
+    """Check if current time is within business hours."""
+    if _debug_flags["force_closed"]:
+        return False
+    if _debug_flags["force_open"]:
+        return True
+    now = datetime.now(TIMEZONE)
+    hours = SCHEDULE.get(now.weekday())
+    if hours is None:
+        return False
+    open_hour, close_hour = hours
+    return open_hour <= now.hour < close_hour
 
 
 def _get_cache():
@@ -71,6 +100,7 @@ def _get_cache():
             "employees": list(_cache["employees"]),
             "ready": _cache["ready"],
             "is_stale": is_stale,
+            "is_open": _is_open(),
         }
 
 
@@ -99,6 +129,7 @@ def _fetch_staff():
 def _poll_loop():
     """Background loop: fetch staff list, update cache, sleep, repeat."""
     _was_paused = False
+    _was_closed = False
     while True:
         if _debug_flags["pause_poller"]:
             if not _was_paused:
@@ -107,6 +138,20 @@ def _poll_loop():
             time.sleep(POLL_INTERVAL)
             continue
         _was_paused = False
+
+        if not _is_open():
+            if not _was_closed:
+                logger.info("Outside business hours – pausing API polls")
+                with _cache_lock:
+                    _cache["employees"] = []
+                    _cache["ready"] = True
+                _was_closed = True
+            time.sleep(POLL_INTERVAL)
+            continue
+        if _was_closed:
+            logger.info("Business hours started – resuming API polls")
+            _was_closed = False
+
         try:
             employees = _fetch_staff()
             employees.sort(key=lambda e: (e.get("name") or "").upper())
@@ -195,3 +240,19 @@ if app.debug:
         _debug_flags["fail_next_presence"] = True
         logger.info("Debug: next /presence request will return 503")
         return "Next /presence request will return 503.\n"
+
+    @app.route("/debug/closed")
+    def debug_closed():
+        """Force closed state regardless of schedule."""
+        _debug_flags["force_closed"] = True
+        _debug_flags["force_open"] = False
+        logger.info("Debug: forced closed state")
+        return "Forced closed. Reset with /debug/open\n"
+
+    @app.route("/debug/open")
+    def debug_open():
+        """Clear closed override, resume normal schedule."""
+        _debug_flags["force_closed"] = False
+        _debug_flags["force_open"] = False
+        logger.info("Debug: cleared schedule override, back to normal")
+        return "Schedule override cleared.\n"
