@@ -252,6 +252,28 @@
         updateIndicator();
       }
 
+      function rebuildFromPages() {
+        var container = document.getElementById("page-container");
+        if (!container) return;
+        var allItems = Array.from(container.querySelectorAll("li"));
+        if (allItems.length === 0) return;
+        var ul = document.createElement("ul");
+        ul.className = "grid grid-cols-5 gap-x-6";
+        allItems.forEach(function (li) { ul.appendChild(li); });
+        container.innerHTML = "";
+        container.appendChild(ul);
+        currentPage = 0;
+        if (pageTimer) { clearInterval(pageTimer); pageTimer = null; }
+        paginateDOM();
+      }
+
+      // Re-paginate when viewport size changes (e.g. TV browser chrome hides)
+      var resizeTimer = null;
+      window.addEventListener("resize", function () {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(rebuildFromPages, 300);
+      });
+
       // Initial setup
       requestAnimationFrame(paginateDOM);
 
