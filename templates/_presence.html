@@ -2,31 +2,34 @@
 <p class="text-center text-xl" style="color: #b2b2b2;">Loading...</p>
 {% else %}
 
-{% if is_stale %}
-<p class="text-center text-sm mb-2" style="color: #F4313F;">Data may be stale</p>
-{% endif %}
-
 {% set onsite = employees | selectattr("onsite_status", "equalto", "onsite") | list %}
 
-<p class="text-center text-3xl font-semibold mb-6">
-  <span class="inline-block w-3 h-3 rounded-full bg-green-500 animate-pulse mr-2 align-middle"></span>
-  <span style="color: #16a34a;">{{ onsite | length }}</span> Onsite
-</p>
+<div class="flex items-center justify-center mb-6 relative">
+  <p class="text-center text-3xl font-semibold">
+    <span class="inline-block w-3 h-3 rounded-full {{ 'bg-yellow-500' if is_stale else 'bg-green-500' }} animate-pulse mr-2 align-middle"></span>
+    <span style="color: {{ '#000000' if is_stale else '#16a34a' }};">{{ onsite | length }}</span> ONSITE
+  </p>
+  {% if is_stale %}
+  <span id="status-warning" class="absolute right-0 text-lg" style="color: #eab308;">DATA MAY BE STALE</span>
+  {% endif %}
+</div>
 
-<ul class="columns-5 gap-x-6">
-  {% for emp in onsite %}
-  <li class="break-inside-avoid">
-    <div class="flex items-start gap-2 text-xl leading-8 uppercase">
-      <span class="w-6 shrink-0 text-center">👤</span>
-      <div class="w-fit">
-        <span>{{ emp.name }}</span>
-        <div class="py-1">
-          <hr style="border: none; height: 2px; background-color: #F4313F; opacity: 1;">
+<div id="page-container" class="relative">
+  <ul class="grid grid-cols-5 gap-x-6">
+    {% for emp in onsite %}
+    <li>
+      <div class="flex items-start gap-2 text-xl leading-8 uppercase">
+        <span class="w-6 shrink-0 text-center"></span>
+        <div class="w-fit">
+          <span>{{ emp.name }}</span>
+          <div class="py-1">
+            <hr style="border: none; height: 2px; background-color: #F4313F; opacity: 1;">
+          </div>
         </div>
       </div>
-    </div>
-  </li>
-  {% endfor %}
-</ul>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
 
 {% endif %}

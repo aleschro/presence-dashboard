@@ -2,24 +2,38 @@ import os
 import time
 import threading
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import requests
 from dotenv import load_dotenv
 from pathlib import Path
 
-from flask import Flask, render_template, send_from_directory
+from flask import Flask, abort, render_template, send_from_directory
 
 load_dotenv()
 
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
+LOG_FILE = Path(__file__).resolve().parent / "app.log"
+_log_fmt = logging.Formatter(
+    "%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
+
+_root = logging.getLogger()
+_root.setLevel(logging.INFO)
+
+# Always write to file
+_file_handler = logging.FileHandler(LOG_FILE, encoding="utf-8")
+_file_handler.setFormatter(_log_fmt)
+_root.addHandler(_file_handler)
+
+# Console output when VERBOSE=1 is set (for development)
+if os.environ.get("VERBOSE") == "1":
+    _console_handler = logging.StreamHandler()
+    _console_handler.setFormatter(_log_fmt)
+    _root.addHandler(_console_handler)
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -37,6 +51,12 @@ _cache = {
     "employees": [],         # list of dicts from the API
     "last_success": None,    # datetime (UTC) of last successful poll
     "ready": False,          # True after first successful poll
+}
+
+# Debug-only flags (used by /debug/* routes when app.debug is True)
+_debug_flags = {
+    "pause_poller": False,       # skip API polling when True
+    "fail_next_presence": False, # return 503 on next /presence request
 }
 
 
@@ -78,7 +98,15 @@ def _fetch_staff():
 
 def _poll_loop():
     """Background loop: fetch staff list, update cache, sleep, repeat."""
+    _was_paused = False
     while True:
+        if _debug_flags["pause_poller"]:
+            if not _was_paused:
+                logger.info("Poller paused by debug flag – skipping polls")
+                _was_paused = True
+            time.sleep(POLL_INTERVAL)
+            continue
+        _was_paused = False
         try:
             employees = _fetch_staff()
             employees.sort(key=lambda e: (e.get("name") or "").upper())
@@ -125,6 +153,10 @@ def index():
 
 @app.route("/presence")
 def presence():
+    if _debug_flags["fail_next_presence"]:
+        _debug_flags["fail_next_presence"] = False
+        logger.warning("Returning 503 for /presence (debug flag)")
+        abort(503)
     cache = _get_cache()
     return render_template("_presence.html", **cache)
 
@@ -132,3 +164,34 @@ def presence():
 @app.route("/assets/<path:filename>")
 def assets(filename):
     return send_from_directory(ASSETS_DIR, filename)
+
+
+# ---------------------------------------------------------------------------
+# Debug routes (only registered when running with --debug)
+# ---------------------------------------------------------------------------
+if app.debug:
+
+    @app.route("/debug/stale")
+    def debug_stale():
+        """Pause the poller and backdate last_success so stale state persists."""
+        _debug_flags["pause_poller"] = True
+        with _cache_lock:
+            _cache["last_success"] = datetime.now(timezone.utc) - timedelta(seconds=STALE_THRESHOLD + 60)
+        logger.info("Debug: poller paused, data backdated to stale")
+        return "Poller paused, data marked stale. Reset with /debug/unstale\n"
+
+    @app.route("/debug/unstale")
+    def debug_unstale():
+        """Unpause the poller and reset last_success to now."""
+        _debug_flags["pause_poller"] = False
+        with _cache_lock:
+            _cache["last_success"] = datetime.now(timezone.utc)
+        logger.info("Debug: poller resumed, staleness cleared")
+        return "Poller resumed, staleness cleared.\n"
+
+    @app.route("/debug/fail-next")
+    def debug_fail_next():
+        """Make the next /presence request return 503."""
+        _debug_flags["fail_next_presence"] = True
+        logger.info("Debug: next /presence request will return 503")
+        return "Next /presence request will return 503.\n"

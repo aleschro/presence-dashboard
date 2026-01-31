@@ -34,17 +34,246 @@
     body {
       font-family: 'Cronos Pro', sans-serif;
     }
+    .page {
+      transition: opacity 500ms ease-in-out;
+    }
   </style>
 </head>
 <body class="bg-white text-black min-h-screen p-6">
 
+  <!-- Hidden: force Tailwind JIT to generate classes used by JS -->
+  <div class="hidden border-2 border-yellow-500 border-red-500 bg-yellow-500 opacity-0 absolute inset-0"></div>
+
   <div id="presence"
        hx-get="/presence"
-       hx-trigger="every 10s"
+       hx-trigger="every 5s"
        hx-swap="innerHTML"
        class="w-full max-w-screen-2xl mx-auto">
     {% include "_presence.html" %}
   </div>
+
+  <p id="page-indicator" class="fixed bottom-4 left-6 text-3xl font-bold text-gray-400"></p>
+
+  <script>
+    (function () {
+      var warningId = "status-warning";
+      var connLostApplied = false;
+
+      function showConnectionLost() {
+        if (connLostApplied) return;
+        connLostApplied = true;
+
+        var presence = document.getElementById("presence");
+        if (!presence) return;
+
+        // Swap existing dot to outline style (remove fill + pulse)
+        var dot = presence.querySelector("span.rounded-full");
+        if (dot) {
+          dot.classList.remove("bg-green-500", "bg-yellow-500", "animate-pulse");
+          dot.classList.add("border-2", "border-red-500");
+        }
+
+        // Turn onsite number black
+        var countSpan = presence.querySelector("p.text-3xl span[style]");
+        if (countSpan) countSpan.style.color = "#000000";
+
+        // Replace stale warning or create connection-lost warning in top-right
+        var warning = document.getElementById(warningId);
+        if (warning) {
+          warning.style.color = '#F4313F';
+          warning.textContent = "CONNECTION LOST, NOTIFY IT";
+        } else {
+          // No existing warning — inject one into the flex container
+          var flexRow = presence.querySelector("div.flex");
+          if (flexRow) {
+            var span = document.createElement("span");
+            span.id = warningId;
+            span.className = "absolute right-0 text-lg";
+            span.style.color = "#F4313F";
+            span.textContent = "CONNECTION LOST, NOTIFY IT";
+            flexRow.appendChild(span);
+          }
+        }
+      }
+
+      // Reset guard on successful request so it can re-trigger later
+      // Uses afterRequest (not afterSwap) because we cancel swaps when pagination is active
+      document.body.addEventListener("htmx:afterRequest", function (e) {
+        if (!e.detail.failed) connLostApplied = false;
+      });
+
+      // Network failure (server unreachable)
+      document.body.addEventListener("htmx:sendError", showConnectionLost);
+      // HTTP error (e.g. 503)
+      document.body.addEventListener("htmx:responseError", showConnectionLost);
+    })();
+  </script>
+
+  <script>
+    (function () {
+      var pageTimer = null;
+      var currentPage = 0;
+      var totalPages = 1;
+      var storedItemsPerPage = 0;
+
+      function updateIndicator() {
+        var el = document.getElementById("page-indicator");
+        if (el) el.textContent = (currentPage + 1) + "/" + totalPages;
+      }
+
+      function paginateDOM() {
+        var container = document.getElementById("page-container");
+        if (!container) { updateIndicator(); return; }
+
+        var ul = container.querySelector("ul");
+        if (!ul) { updateIndicator(); return; }
+
+        var items = Array.from(ul.querySelectorAll("li"));
+        if (items.length === 0) {
+          totalPages = 1; currentPage = 0; updateIndicator(); return;
+        }
+
+        // Check each item's actual rendered position against viewport bottom
+        var maxBottom = window.innerHeight;
+        var itemsPerPage = items.length;
+
+        for (var i = 0; i < items.length; i++) {
+          if (items[i].getBoundingClientRect().bottom > maxBottom) {
+            itemsPerPage = i;
+            break;
+          }
+        }
+
+        // Round down to complete rows (5 columns)
+        itemsPerPage = Math.floor(itemsPerPage / 5) * 5;
+        if (itemsPerPage === 0) itemsPerPage = 5;
+        storedItemsPerPage = itemsPerPage;
+
+        if (itemsPerPage >= items.length) {
+          totalPages = 1; currentPage = 0;
+          if (pageTimer) { clearInterval(pageTimer); pageTimer = null; }
+          updateIndicator();
+          return;
+        }
+
+        // Calculate pages
+        totalPages = Math.ceil(items.length / itemsPerPage);
+        if (currentPage >= totalPages) currentPage = 0;
+
+        // Rebuild container with page divs
+        var ulClass = ul.className;
+        var fragment = document.createDocumentFragment();
+
+        for (var p = 0; p < totalPages; p++) {
+          var pageDiv = document.createElement("div");
+          pageDiv.className = "page" +
+            (p !== currentPage ? " opacity-0 absolute inset-0" : "");
+          pageDiv.setAttribute("data-page", p + 1);
+
+          var pageUl = document.createElement("ul");
+          pageUl.className = ulClass;
+
+          var start = p * itemsPerPage;
+          var end = Math.min(start + itemsPerPage, items.length);
+          for (var i = start; i < end; i++) {
+            pageUl.appendChild(items[i]);
+          }
+
+          pageDiv.appendChild(pageUl);
+          fragment.appendChild(pageDiv);
+        }
+
+        container.innerHTML = "";
+        container.appendChild(fragment);
+        updateIndicator();
+
+        if (!pageTimer && totalPages > 1) {
+          pageTimer = setInterval(cyclePage, 10000);
+        }
+      }
+
+      function refreshPages(html) {
+        var temp = document.createElement("div");
+        temp.innerHTML = html;
+
+        // Update the header (onsite count, dot color, stale warning)
+        var newHeader = temp.querySelector("div.flex");
+        var oldHeader = document.querySelector("#presence div.flex");
+        if (newHeader && oldHeader) {
+          oldHeader.innerHTML = newHeader.innerHTML;
+        }
+
+        // Get fresh items
+        var newItems = Array.from(temp.querySelectorAll("#page-container li"));
+        var container = document.getElementById("page-container");
+        if (!container) return;
+
+        var pages = container.querySelectorAll("[data-page]");
+        if (pages.length === 0 || storedItemsPerPage === 0) return;
+
+        // Check if page count changed
+        var newTotalPages = Math.ceil(newItems.length / storedItemsPerPage);
+        if (newTotalPages !== totalPages) {
+          // Page count changed — full rebuild needed
+          var ul = document.createElement("ul");
+          ul.className = "grid grid-cols-5 gap-x-6";
+          newItems.forEach(function (li) { ul.appendChild(li); });
+          container.innerHTML = "";
+          container.appendChild(ul);
+          paginateDOM();
+          return;
+        }
+
+        // Same page count — update content in place (page divs persist)
+        for (var p = 0; p < pages.length; p++) {
+          var pageUl = pages[p].querySelector("ul");
+          if (!pageUl) continue;
+          pageUl.innerHTML = "";
+          var start = p * storedItemsPerPage;
+          var end = Math.min(start + storedItemsPerPage, newItems.length);
+          for (var i = start; i < end; i++) {
+            pageUl.appendChild(newItems[i]);
+          }
+        }
+      }
+
+      function cyclePage() {
+        var container = document.getElementById("page-container");
+        if (!container) return;
+
+        var pages = container.querySelectorAll("[data-page]");
+        if (pages.length <= 1) return;
+
+        var nextPage = (currentPage + 1) % pages.length;
+        if (pages[currentPage]) pages[currentPage].classList.add("opacity-0");
+        if (pages[nextPage]) pages[nextPage].classList.remove("opacity-0");
+
+        currentPage = nextPage;
+        updateIndicator();
+      }
+
+      // Initial setup
+      requestAnimationFrame(paginateDOM);
+
+      // Intercept HTMX swap: if pages exist, update in-place instead of replacing DOM
+      document.body.addEventListener("htmx:beforeSwap", function (e) {
+        if (e.detail.target.id !== "presence") return;
+        var container = document.getElementById("page-container");
+        var pages = container && container.querySelectorAll("[data-page]");
+        if (pages && pages.length > 1 && !e.detail.isError) {
+          e.detail.shouldSwap = false;
+          refreshPages(e.detail.serverResponse);
+        }
+      });
+
+      // First load: HTMX swaps normally, then paginateDOM creates page structure
+      document.body.addEventListener("htmx:afterSwap", function (e) {
+        if (e.detail.target.id === "presence") {
+          requestAnimationFrame(paginateDOM);
+        }
+      });
+    })();
+  </script>
 
 </body>
 </html>
