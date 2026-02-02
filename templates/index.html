@@ -136,25 +136,29 @@
         // Check each item's actual rendered position against viewport bottom
         var maxBottom = window.innerHeight - 40;
         var itemsPerPage = items.length;
+        var allFit = true;
 
         for (var i = 0; i < items.length; i++) {
           if (items[i].getBoundingClientRect().bottom > maxBottom) {
             itemsPerPage = i;
+            allFit = false;
             break;
           }
         }
 
-        // Round down to complete rows (5 columns)
-        itemsPerPage = Math.floor(itemsPerPage / 5) * 5;
-        if (itemsPerPage === 0) itemsPerPage = 5;
-        storedItemsPerPage = itemsPerPage;
-
-        if (itemsPerPage >= items.length) {
+        // If every item fits in the viewport, no pagination needed
+        if (allFit) {
           totalPages = 1; currentPage = 0;
           if (pageTimer) { clearInterval(pageTimer); pageTimer = null; }
+          storedItemsPerPage = itemsPerPage;
           updateIndicator();
           return;
         }
+
+        // Only round down to complete rows when we actually need to paginate
+        itemsPerPage = Math.floor(itemsPerPage / 5) * 5;
+        if (itemsPerPage === 0) itemsPerPage = 5;
+        storedItemsPerPage = itemsPerPage;
 
         // Calculate pages
         totalPages = Math.ceil(items.length / itemsPerPage);
