@@ -56,6 +56,12 @@ SCHEDULE = {
     # Sun: absent = closed
 }
 
+# Name overrides: API name -> display name
+# Use this for employees whose preferred name differs from OnLocation
+NAME_OVERRIDES = {
+    "MARY A RAFF":"MANDY WAY"
+}
+
 # ---------------------------------------------------------------------------
 # In-memory cache
 # ---------------------------------------------------------------------------
@@ -154,7 +160,11 @@ def _poll_loop():
 
         try:
             employees = _fetch_staff()
-            employees.sort(key=lambda e: (e.get("name") or "").upper())
+            for emp in employees:
+                emp["name"] = (emp.get("name") or "").upper()
+                if emp["name"] in NAME_OVERRIDES:
+                    emp["name"] = NAME_OVERRIDES[emp["name"]]
+            employees.sort(key=lambda e: e.get("name") or "")
 
             with _cache_lock:
                 _cache["employees"] = employees
