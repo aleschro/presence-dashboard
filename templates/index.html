@@ -303,5 +303,19 @@
     })();
   </script>
 
+  <script>
+    (function () {
+      // Nightly full-page reload so static chrome (logo, layout, this JS) can't go
+      // stale on a display that's left open indefinitely — /presence polling keeps
+      // data fresh either way, but only a real reload picks up changes to index.html.
+      // 2 AM local time is outside business hours every day of the week.
+      var RELOAD_HOUR = 2;
+      var now = new Date();
+      var next = new Date(now.getFullYear(), now.getMonth(), now.getDate(), RELOAD_HOUR, 0, 0, 0);
+      if (next <= now) next.setDate(next.getDate() + 1);
+      setTimeout(function () { location.reload(); }, next - now);
+    })();
+  </script>
+
 </body>
 </html>
