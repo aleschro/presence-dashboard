@@ -17,15 +17,11 @@
     <span class="ml-2">ONSITE</span>
   </p>
   <div class="w-1 self-stretch bg-black"></div>
-  <div class="flex flex-col justify-center text-2xl font-semibold leading-none text-black">
-    <p class="flex items-baseline gap-2">
-      <span class="w-12 text-right" style="color: {{ '#000000' if is_stale else '#16a34a' }};">{{ m_count }}</span>
-      <span>AT MILITARY RD</span>
-    </p>
-    <p class="flex items-baseline gap-2">
-      <span class="w-12 text-right" style="color: {{ '#000000' if is_stale else '#16a34a' }};">{{ cw_count }}</span>
-      <span>AT COLVIN WOODS</span>
-    </p>
+  <div class="grid grid-cols-[auto_auto] gap-x-2 items-center text-2xl font-semibold leading-none text-black">
+    <span class="text-right" style="color: {{ '#000000' if is_stale else '#16a34a' }};">{{ m_count }}</span>
+    <span>AT MILITARY RD</span>
+    <span class="text-right" style="color: {{ '#000000' if is_stale else '#16a34a' }};">{{ cw_count }}</span>
+    <span>AT COLVIN WOODS</span>
   </div>
   {% if is_stale %}
   <span id="status-warning" class="fixed bottom-4 right-6 text-lg" style="color: #eab308;">DATA MAY BE STALE</span>
