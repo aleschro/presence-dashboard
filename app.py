@@ -62,6 +62,14 @@ NAME_OVERRIDES = {
     "MARY A RAFF":"MANDY WAY"
 }
 
+# Site badge: shown only for employees currently at a non-default site.
+# Matched as a case-insensitive substring against cur_location (e.g. API returns
+# "700 Colvin Woods Pkwy."), so exact formatting/punctuation doesn't matter.
+# Military Rd is the default site and stays unmarked.
+SITE_MARKERS = (
+    ("colvin woods", "CW"),
+)
+
 # ---------------------------------------------------------------------------
 # In-memory cache
 # ---------------------------------------------------------------------------
@@ -164,6 +172,10 @@ def _poll_loop():
                 emp["name"] = (emp.get("name") or "").upper()
                 if emp["name"] in NAME_OVERRIDES:
                     emp["name"] = NAME_OVERRIDES[emp["name"]]
+                cur_loc = (emp.get("cur_location") or "").lower()
+                emp["site_badge"] = next(
+                    (code for needle, code in SITE_MARKERS if needle in cur_loc), ""
+                )
             employees.sort(key=lambda e: e.get("name") or "")
 
             with _cache_lock:

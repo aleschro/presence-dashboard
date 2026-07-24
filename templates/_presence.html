@@ -24,7 +24,7 @@
     {% for emp in onsite %}
     <li>
       <div class="flex items-start gap-2 text-xl leading-8 uppercase">
-        <span class="w-6 shrink-0 text-center"></span>
+        <span class="w-6 h-8 shrink-0 flex items-center justify-center text-sm font-semibold" style="color: #b2b2b2;">{{ emp.site_badge }}</span>
         <div class="overflow-hidden">
           <span class="block truncate">{{ emp.name }}</span>
           <div class="py-1">
