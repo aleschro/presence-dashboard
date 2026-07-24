@@ -7,15 +7,28 @@
 {% else %}
 
 {% set onsite = employees | selectattr("onsite_status", "equalto", "onsite") | list %}
+{% set cw_count = onsite | selectattr("site_badge", "equalto", "CW") | list | length %}
+{% set m_count = onsite | length - cw_count %}
 
-<div class="flex items-center justify-center mb-6 relative">
-  <p class="text-center text-5xl font-bold tracking-wide">
+<div class="flex items-center justify-center mb-6 gap-6">
+  <p class="text-center text-5xl font-bold tracking-wide leading-none flex items-center">
     <span class="inline-block w-5 h-5 rounded-full {{ 'bg-yellow-500' if is_stale else 'bg-green-500' }} animate-pulse mr-3 align-middle"></span>
     <span style="color: {{ '#000000' if is_stale else '#16a34a' }};">{{ onsite | length }}</span>
     <span class="ml-2">ONSITE</span>
   </p>
+  <div class="w-1 self-stretch bg-black"></div>
+  <div class="flex flex-col justify-center text-2xl font-semibold leading-none text-black">
+    <p class="flex items-baseline gap-2">
+      <span class="w-12 text-right" style="color: {{ '#000000' if is_stale else '#16a34a' }};">{{ m_count }}</span>
+      <span>AT MILITARY RD</span>
+    </p>
+    <p class="flex items-baseline gap-2">
+      <span class="w-12 text-right" style="color: {{ '#000000' if is_stale else '#16a34a' }};">{{ cw_count }}</span>
+      <span>AT COLVIN WOODS</span>
+    </p>
+  </div>
   {% if is_stale %}
-  <span id="status-warning" class="absolute right-0 text-lg" style="color: #eab308;">DATA MAY BE STALE</span>
+  <span id="status-warning" class="fixed bottom-4 right-6 text-lg" style="color: #eab308;">DATA MAY BE STALE</span>
   {% endif %}
 </div>
 
@@ -24,11 +37,11 @@
     {% for emp in onsite %}
     <li>
       <div class="flex items-start gap-2 text-xl leading-8 uppercase">
-        <span class="w-6 h-8 shrink-0 flex items-center justify-center text-sm font-semibold" style="color: #b2b2b2;">{{ emp.site_badge }}</span>
+        <span class="w-6 h-8 shrink-0 flex items-center justify-center text-sm font-semibold" style="color: #F4313F;">{{ emp.site_badge }}</span>
         <div class="overflow-hidden">
           <span class="block truncate">{{ emp.name }}</span>
           <div class="py-1">
-            <hr style="border: none; height: 2px; background-color: #F4313F; opacity: 1;">
+            <hr style="border: none; height: 2px; background-color: #b2b2b2; opacity: 1;">
           </div>
         </div>
       </div>

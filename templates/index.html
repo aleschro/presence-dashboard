@@ -44,6 +44,8 @@
   <!-- Hidden: force Tailwind JIT to generate classes used by JS -->
   <div class="hidden border-2 border-yellow-500 border-red-500 bg-yellow-500 opacity-0 absolute inset-0"></div>
 
+  <img src="/assets/ima-logo.png" alt="IMA" class="fixed top-4 left-6 h-14 w-auto">
+
   <div id="presence"
        hx-get="/presence"
        hx-trigger="every 1s"
@@ -88,7 +90,7 @@
           if (flexRow) {
             var span = document.createElement("span");
             span.id = warningId;
-            span.className = "absolute right-0 text-lg";
+            span.className = "fixed bottom-4 right-6 text-lg";
             span.style.color = "#F4313F";
             span.textContent = "CONNECTION LOST, NOTIFY IT";
             flexRow.appendChild(span);
