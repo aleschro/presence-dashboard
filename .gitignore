@@ -2,7 +2,5 @@
 .env
 *.log
 __pycache__/
-docs/
 .claude/
 web.config
-CLAUDE.md

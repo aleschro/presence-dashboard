@@ -1,8 +1,0 @@
-colors:
-- white
-- black
-- #F4313F
-- #b2b2b2
-
-font: cronos pro family
-
